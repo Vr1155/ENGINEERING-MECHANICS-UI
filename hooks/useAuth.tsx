@@ -17,8 +17,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Here you would typically check for an existing session
-    // For now, we'll just simulate a loading state
+    // For development, automatically log in as guest
     const timer = setTimeout(() => {
+      setUser({ isGuest: true, email: 'guest@example.com' }); // Auto-login for development
       setLoading(false);
     }, 1000);
 

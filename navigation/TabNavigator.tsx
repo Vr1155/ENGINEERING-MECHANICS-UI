@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
 import { useTheme } from 'react-native-paper';
 
-import LearningScreen from '../screens/learning/LearningScreen';
+import LearningStackNavigator from './LearningStackNavigator';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import TestingScreen from '../screens/testing/TestingScreen';
 
@@ -30,7 +30,7 @@ export default function TabNavigator() {
     >
       <Tab.Screen
         name="Learning"
-        component={LearningScreen}
+        component={LearningStackNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="book-open-variant" size={size} color={color} />

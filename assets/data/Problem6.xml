@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Problem id="6">
+  <RigidBody Name="AC" IsGround="False">
+    <ImageFile>assets/AC.png</ImageFile>
+    <Point Name="A" X="-R" Y="0" />
+    <Point Name="mid" X="-R/√2" Y="R/√2" />
+    <Point Name="C" X="0" Y="R" />
+    <ExternalForce Point="mid" Dir="down" Mag="P" />
+  </RigidBody>
+  <RigidBody Name="CB" IsGround="False">
+    <ImageFile>assets/CB.png</ImageFile>
+    <Point Name="C" X="0" Y="R" />
+    <Point Name="mid" X="R/√2" Y="R/√2" />
+    <Point Name="B" X="R" Y="0" />
+    <ExternalForce Point="mid" Dir="down" Mag="P" />
+  </RigidBody>
+  <RigidBody Name="A_Ground" IsGround="True">
+    <Point Name="A" X="-R" Y="0" />
+  </RigidBody>
+  <RigidBody Name="B_Ground" IsGround="True">
+    <Point Name="B" X="R" Y="0" />
+  </RigidBody>
+</Problem>

@@ -45,80 +45,115 @@ export interface CanvasStageRef {
 
 // Helper function to render a quarter-circle arc
 function renderArcBody(body: RigidBody, theme: any) {
-  const radius = 50; // Arc radius for canvas display
   const strokeWidth = 3;
 
-  if (body.name === 'AC') {
-    // Top-left quarter circle
-    return (
-      <Line
-        points={generateArcPoints(-radius, 0, radius, 180, 270)}
-        stroke={theme.colors.primary}
-        strokeWidth={strokeWidth}
-        tension={0.5}
-      />
-    );
-  } else if (body.name === 'CB') {
-    // Top-right quarter circle
-    return (
-      <Line
-        points={generateArcPoints(radius, 0, radius, 270, 360)}
-        stroke={theme.colors.primary}
-        strokeWidth={strokeWidth}
-        tension={0.5}
-      />
-    );
+  // Use the actual coordinates from the body points to ensure alignment
+  const points = body.points;
+
+  if (body.name === 'AC' && points.length >= 3) {
+    // For AC: A(-R, 0) -> mid(-R/√2, R/√2) -> C(0, R)
+    const A = points.find(p => p.name === 'A');
+    const mid = points.find(p => p.name === 'mid');
+    const C = points.find(p => p.name === 'C');
+
+    if (A && mid && C) {
+      // Generate proper quarter circle arc from A to C through mid
+      const radius = Math.abs(A.x); // R = 100
+      const centerX = 0;
+      const centerY = 0;
+
+      return (
+        <Line
+          points={generateQuarterCircleArc(centerX, centerY, radius, 180, 90)}
+          stroke={theme.colors.primary}
+          strokeWidth={strokeWidth}
+          tension={0}
+          lineCap="round"
+        />
+      );
+    }
+  } else if (body.name === 'CB' && points.length >= 3) {
+    // For CB: C(0, R) -> mid(R/√2, R/√2) -> B(R, 0)
+    const C = points.find(p => p.name === 'C');
+    const mid = points.find(p => p.name === 'mid');
+    const B = points.find(p => p.name === 'B');
+
+    if (C && mid && B) {
+      // Generate proper quarter circle arc from C to B through mid
+      const radius = Math.abs(B.x); // R = 100
+      const centerX = 0;
+      const centerY = 0;
+
+      return (
+        <Line
+          points={generateQuarterCircleArc(centerX, centerY, radius, 90, 0)}
+          stroke={theme.colors.primary}
+          strokeWidth={strokeWidth}
+          tension={0}
+          lineCap="round"
+        />
+      );
+    }
   }
   return null;
+}
+
+// Generate proper quarter circle arc points
+function generateQuarterCircleArc(centerX: number, centerY: number, radius: number, startAngle: number, endAngle: number) {
+  const points: number[] = [];
+  const segments = 30; // More segments for smoother arc
+
+  // Calculate the angle step
+  const angleStep = (endAngle - startAngle) / segments;
+
+  for (let i = 0; i <= segments; i++) {
+    const angle = startAngle + (i * angleStep);
+    const radian = angle * Math.PI / 180;
+    const x = centerX + radius * Math.cos(radian);
+    const y = centerY - radius * Math.sin(radian); // Negative to flip Y-axis (make arcs go upward)
+    points.push(x, y);
+  }
+
+  return points;
 }
 
 // Helper function to render ground support
 function renderGroundSupport(body: RigidBody, theme: any) {
   const size = 30;
 
+  // Find the actual snap point position for the ground support
+  const snapPoint = body.points[0]; // Ground supports typically have one point
+  const pinX = snapPoint ? snapPoint.x : 0;
+  const pinY = snapPoint ? snapPoint.y : 0;
+
   return (
     <Group>
-      {/* Pin symbol */}
+      {/* Pin symbol - positioned at the actual snap point */}
       <Circle
-        x={0}
-        y={0}
+        x={pinX}
+        y={pinY}
         radius={8}
         fill={theme.colors.surface}
         stroke={theme.colors.primary}
         strokeWidth={2}
       />
-      {/* Ground hatching */}
+      {/* Ground hatching - positioned relative to the pin */}
       {Array.from({ length: 5 }).map((_, i) => (
         <Line
           key={i}
-          points={[-size/2 + i*6, 15, -size/2 + i*6 + 3, 20]}
+          points={[pinX - size/2 + i*6, pinY + 15, pinX - size/2 + i*6 + 3, pinY + 20]}
           stroke={theme.colors.primary}
           strokeWidth={2}
         />
       ))}
-      {/* Base line */}
+      {/* Base line - positioned relative to the pin */}
       <Line
-        points={[-size/2, 12, size/2, 12]}
+        points={[pinX - size/2, pinY + 12, pinX + size/2, pinY + 12]}
         stroke={theme.colors.primary}
         strokeWidth={3}
       />
     </Group>
   );
-}
-
-// Generate arc points for quarter circle
-function generateArcPoints(centerX: number, centerY: number, radius: number, startAngle: number, endAngle: number) {
-  const points: number[] = [];
-  const angleStep = (endAngle - startAngle) / 20; // 20 segments for smooth arc
-
-  for (let i = 0; i <= 20; i++) {
-    const angle = (startAngle + i * angleStep) * Math.PI / 180;
-    const x = centerX + radius * Math.cos(angle);
-    const y = centerY + radius * Math.sin(angle);
-    points.push(x, y);
-  }
-
-  return points;
 }
 
 export const CanvasStage = React.forwardRef<CanvasStageRef, CanvasStageProps>(({
@@ -183,7 +218,9 @@ export const CanvasStage = React.forwardRef<CanvasStageRef, CanvasStageProps>(({
         const pointId = `${droppedBody.id}-${point.name}`;
         if (pointId === snapPointId) {
           snapPointX = droppedBody.x + point.x;
-          snapPointY = droppedBody.y + point.y;
+          // For non-ground bodies, flip Y coordinate to match graphics
+          const pointY = droppedBody.body.isGround ? point.y : -point.y;
+          snapPointY = droppedBody.y + pointY;
           break;
         }
       }
@@ -247,9 +284,12 @@ export const CanvasStage = React.forwardRef<CanvasStageRef, CanvasStageProps>(({
 
   // Handle body clicks for selection
   const handleBodyClick = useCallback((bodyId: string) => {
-    console.log('Body clicked:', bodyId);
+    console.log('Body clicked:', bodyId); // Minimal debug
+    console.log('Current selectedBody in CanvasStage:', selectedBody);
     const newSelection = selectedBody === bodyId ? null : bodyId;
+    console.log('Setting new selection to:', newSelection);
     setSelectedBody(newSelection);
+    console.log('Calling onBodySelect with:', newSelection);
     onBodySelect?.(newSelection);
   }, [selectedBody, onBodySelect]);
 
@@ -305,22 +345,22 @@ export const CanvasStage = React.forwardRef<CanvasStageRef, CanvasStageProps>(({
               x={droppedBody.x}
               y={droppedBody.y}
               draggable
-              onClick={() => handleBodyClick(droppedBody.id)}
-              onTap={() => handleBodyClick(droppedBody.id)}
+              onClick={() => {
+                console.log('Group onClick triggered for:', droppedBody.id);
+                handleBodyClick(droppedBody.id);
+              }}
+              onTap={() => {
+                console.log('Group onTap triggered for:', droppedBody.id);
+                handleBodyClick(droppedBody.id);
+              }}
+              onMouseDown={() => {
+                console.log('Group onMouseDown triggered for:', droppedBody.id);
+              }}
+              onMouseUp={() => {
+                console.log('Group onMouseUp triggered for:', droppedBody.id);
+                handleBodyClick(droppedBody.id);
+              }}
             >
-              {/* Selection highlight */}
-              {selectedBody === droppedBody.id && (
-                <Circle
-                  x={0}
-                  y={0}
-                  radius={70}
-                  stroke={theme.colors.secondary}
-                  strokeWidth={3}
-                  dash={[10, 10]}
-                  opacity={0.8}
-                />
-              )}
-
               {/* Render the body shape */}
               {droppedBody.body.isGround
                 ? renderGroundSupport(droppedBody.body, theme)
@@ -330,12 +370,16 @@ export const CanvasStage = React.forwardRef<CanvasStageRef, CanvasStageProps>(({
               {/* Render snap points */}
               {droppedBody.snapPoints.map((point, index) => {
                 const snapPointId = `${droppedBody.id}-${point.name}`;
+
+                // For non-ground bodies, flip Y coordinate to match graphics
+                const snapY = droppedBody.body.isGround ? point.y : -point.y;
+
                 return (
                   <SnapPoint
                     key={snapPointId}
                     id={snapPointId}
                     x={point.x}
-                    y={point.y}
+                    y={snapY}
                     bodyId={droppedBody.id}
                     pointName={point.name}
                     onSnapPointClick={handleSnapPointClick}

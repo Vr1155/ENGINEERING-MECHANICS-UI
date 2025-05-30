@@ -46,7 +46,7 @@ export function ForceTool({
     },
     {
       value: 'reaction',
-      label: 'Reaction',
+      label: 'Support',
       icon: 'arrow-up-bold'
     }
   ];
@@ -95,17 +95,27 @@ export function ForceTool({
           <Text variant="bodyMedium" style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
             Tool Mode
           </Text>
-          <SegmentedButtons
-            value={mode}
-            onValueChange={handleModeChange}
-            buttons={modeOptions.map(option => ({
-              value: option.value,
-              label: option.label,
-              icon: option.icon as any,
-              style: { flex: 1 }
-            }))}
-            style={styles.segmentedButtons}
-          />
+          <View style={styles.modeButtons}>
+            {modeOptions.map(option => (
+              <Button
+                key={option.value}
+                mode={mode === option.value ? 'contained' : 'outlined'}
+                onPress={() => handleModeChange(option.value)}
+                icon={option.icon as any}
+                style={[
+                  styles.modeButton,
+                  mode === option.value && { backgroundColor: theme.colors.primary }
+                ]}
+                labelStyle={[
+                  styles.modeButtonLabel,
+                  mode === option.value && { color: theme.colors.onPrimary }
+                ]}
+                contentStyle={styles.modeButtonContent}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </View>
         </View>
 
         {/* Quick Force Buttons */}
@@ -162,7 +172,7 @@ export function ForceTool({
                     style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
                     labelStyle={{ color: theme.colors.onPrimary }}
                   >
-                    Apply {mode === 'force' ? 'Force' : 'Reaction'}
+                    Apply {mode === 'force' ? 'Force' : 'Support'}
                   </Button>
                   <Button
                     mode="outlined"
@@ -187,11 +197,11 @@ export function ForceTool({
 
 const styles = StyleSheet.create({
   container: {
-    margin: 8,
+    margin: 0,
     borderRadius: 12,
   },
   content: {
-    padding: 16,
+    padding: 12,
   },
   title: {
     fontWeight: '600',
@@ -205,8 +215,21 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 8,
   },
-  segmentedButtons: {
+  modeButtons: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  modeButton: {
     width: '100%',
+    minHeight: 44,
+  },
+  modeButtonLabel: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  modeButtonContent: {
+    padding: 8,
   },
   quickForcesGrid: {
     flexDirection: 'row',

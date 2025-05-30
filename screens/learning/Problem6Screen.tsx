@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, useWindowDimensions, ScrollView, Image } from 'react-native';
 import { Text, Surface, ActivityIndicator, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ShapePalette } from '../../components/workspace/ShapePalette';
@@ -53,7 +53,10 @@ export default function Problem6Screen() {
   const handleAddToCanvas = (body: RigidBody) => {
     console.log(`Adding ${body.name} to canvas`);
 
-    if (!canvasRef.current) return;
+    if (!canvasRef.current) {
+      console.log('Cannot add to canvas: canvasRef.current is null');
+      return;
+    }
 
     // Calculate canvas dimensions
     const canvasWidth = Math.min(width * 0.65, 800);
@@ -62,6 +65,8 @@ export default function Problem6Screen() {
     // Place at center of canvas with some randomness to avoid overlap
     const canvasX = canvasWidth / 2 + (Math.random() - 0.5) * 200;
     const canvasY = canvasHeight / 2 + (Math.random() - 0.5) * 200;
+
+    console.log(`Placing ${body.name} at canvas position (${canvasX}, ${canvasY})`);
 
     // Add the body to the canvas
     canvasRef.current.addBodyToCanvas(body, canvasX, canvasY);
@@ -73,8 +78,10 @@ export default function Problem6Screen() {
   };
 
   const handleBodySelect = (bodyId: string | null) => {
-    console.log(`Body selected: ${bodyId}`);
+    console.log('Body selected:', bodyId); // Minimal debug
+    console.log('Previous selectedBody:', selectedBody);
     setSelectedBody(bodyId);
+    console.log('Updated selectedBody to:', bodyId);
   };
 
   const handleForceToolModeChange = (mode: ForceToolMode) => {
@@ -110,7 +117,14 @@ export default function Problem6Screen() {
   };
 
   const handleClearSelectedBody = () => {
-    if (!selectedBody || !canvasRef.current) return;
+    console.log('Clear Selected button clicked');
+    console.log('selectedBody state:', selectedBody);
+    console.log('canvasRef.current:', canvasRef.current);
+
+    if (!selectedBody || !canvasRef.current) {
+      console.log('Cannot clear: selectedBody is null or canvasRef is null');
+      return;
+    }
 
     console.log(`Clearing selected body: ${selectedBody}`);
 
@@ -160,106 +174,137 @@ export default function Problem6Screen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text variant="headlineSmall" style={styles.title}>
-          {problem.title}
-        </Text>
-        <Text variant="bodyMedium" style={styles.description}>
-          {problem.description}
-        </Text>
-      </View>
+      <ScrollView style={styles.mainScrollView} contentContainerStyle={styles.scrollContent}>
+        {/* Problem Header */}
+        <View style={styles.header}>
+          <Text variant="headlineSmall" style={styles.title}>
+            {problem.title}
+          </Text>
+          <View style={styles.descriptionContainer}>
+            <View style={styles.textSection}>
+              <Text variant="bodyMedium" style={styles.description}>
+                {problem.description}
+              </Text>
+            </View>
+            <View style={styles.diagramSection}>
+              <Image
+                source={require('../../assets/data/Problem_6_diagram.png')}
+                style={styles.headerDiagramImage}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+        </View>
 
-      <View style={styles.workspace}>
         {/* Shape Palette */}
-        <View style={styles.paletteContainer}>
+        <View style={styles.paletteSection}>
           <ShapePalette
             bodies={problem.data.bodies}
             onAddToCanvas={handleAddToCanvas}
           />
         </View>
 
-        <View style={styles.mainArea}>
-          {/* Konva Canvas */}
-          <Surface style={[styles.canvasArea, { width: canvasWidth, height: canvasHeight }]} elevation={2}>
-            <CanvasStage
-              ref={canvasRef}
-              width={canvasWidth}
-              height={canvasHeight}
-              onSnapPointClick={handleSnapPointClick}
-              onBodySelect={handleBodySelect}
-            />
-          </Surface>
+        <View style={styles.workspace}>
+          {/* Canvas Area */}
+          <ScrollView
+            style={styles.canvasScrollView}
+            contentContainerStyle={styles.canvasScrollContent}
+            showsVerticalScrollIndicator={true}
+            showsHorizontalScrollIndicator={true}
+          >
+            <Surface style={[styles.canvasArea, { width: canvasWidth, height: canvasHeight }]} elevation={2}>
+              <CanvasStage
+                ref={canvasRef}
+                width={canvasWidth}
+                height={canvasHeight}
+                onSnapPointClick={handleSnapPointClick}
+                onBodySelect={handleBodySelect}
+              />
+            </Surface>
+          </ScrollView>
 
           {/* Tools Area */}
           <View style={styles.toolsArea}>
-            {/* Clear Controls */}
-            <View style={styles.clearControls}>
-              <Text variant="titleMedium" style={styles.clearTitle}>
-                Canvas Controls
-              </Text>
-              <View style={styles.clearButtons}>
-                <Button
-                  mode="outlined"
-                  onPress={handleClearSelectedBody}
-                  disabled={!selectedBody}
-                  style={[styles.clearButton, { opacity: selectedBody ? 1 : 0.5 }]}
-                  icon="delete"
-                  contentStyle={styles.clearButtonContent}
-                >
-                  Clear Selected
-                </Button>
-                <Button
-                  mode="contained"
-                  onPress={handleClearAll}
-                  style={[styles.clearButton, { backgroundColor: Colors.error }]}
-                  icon="delete-sweep"
-                  contentStyle={styles.clearButtonContent}
-                >
-                  Clear All
-                </Button>
+            <ScrollView
+              style={styles.scrollContainer}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={true}
+            >
+              {/* Clear Controls */}
+              <View style={styles.clearControls}>
+                <Text variant="titleMedium" style={styles.clearTitle}>
+                  Canvas Controls
+                </Text>
+                <View style={styles.clearButtons}>
+                  <Button
+                    mode="outlined"
+                    onPress={handleClearSelectedBody}
+                    disabled={!selectedBody}
+                    style={[styles.clearButton, { opacity: selectedBody ? 1 : 0.5 }]}
+                    icon="delete"
+                    contentStyle={styles.clearButtonContent}
+                  >
+                    Clear Selected
+                  </Button>
+                  <Button
+                    mode="contained"
+                    onPress={handleClearAll}
+                    style={[styles.clearButton, { backgroundColor: Colors.error }]}
+                    icon="delete-sweep"
+                    contentStyle={styles.clearButtonContent}
+                  >
+                    Clear All
+                  </Button>
+                </View>
+                {selectedBody && (
+                  <Text variant="bodySmall" style={styles.selectedBodyText}>
+                    Selected: {selectedBody.split('-')[0]} body
+                  </Text>
+                )}
+                <Text variant="bodySmall" style={[styles.selectedBodyText, { color: 'orange' }]}>
+                  Debug - selectedBody: {selectedBody || 'null'}
+                </Text>
+                <Text variant="bodySmall" style={[styles.selectedBodyText, { color: 'blue' }]}>
+                  Debug - Button disabled: {(!selectedBody).toString()}
+                </Text>
               </View>
-              {selectedBody && (
-                <Text variant="bodySmall" style={styles.selectedBodyText}>
-                  Selected: {selectedBody.split('-')[0]} body
-                </Text>
-              )}
-            </View>
 
-            {/* Force Tool */}
-            <ForceTool
-              selectedSnapPoint={selectedSnapPoint}
-              onModeChange={handleForceToolModeChange}
-              onSettingsChange={handleForceSettingsChange}
-              onApplyForce={handleApplyForce}
-              onClearForce={handleClearForce}
-            />
+              {/* Force Tool */}
+              <ForceTool
+                selectedSnapPoint={selectedSnapPoint}
+                onModeChange={handleForceToolModeChange}
+                onSettingsChange={handleForceSettingsChange}
+                onApplyForce={handleApplyForce}
+                onClearForce={handleClearForce}
+              />
 
-            {/* Problem Info */}
-            <View style={styles.infoPanel}>
-              <Text variant="titleMedium" style={styles.infoTitle}>
-                Problem Data
-              </Text>
-              <Text variant="bodySmall" style={styles.infoText}>
-                Bodies: {problem.data.bodies.length}
-              </Text>
-              <Text variant="bodySmall" style={styles.infoText}>
-                Draggable: {problem.data.bodies.length}
-              </Text>
-              <Text variant="bodySmall" style={styles.infoText}>
-                R = {problem.data.symbols.R}
-              </Text>
-              <Text variant="bodySmall" style={styles.infoText}>
-                P = {problem.data.symbols.P}
-              </Text>
-              {selectedSnapPoint && (
-                <Text variant="bodySmall" style={[styles.infoText, { color: Colors.primary }]}>
-                  Selected: {selectedSnapPoint}
+              {/* Problem Info */}
+              <View style={styles.infoPanel}>
+                <Text variant="titleMedium" style={styles.infoTitle}>
+                  Problem Data
                 </Text>
-              )}
-            </View>
+                <Text variant="bodySmall" style={styles.infoText}>
+                  Bodies: {problem.data.bodies.length}
+                </Text>
+                <Text variant="bodySmall" style={styles.infoText}>
+                  Draggable: {problem.data.bodies.length}
+                </Text>
+                <Text variant="bodySmall" style={styles.infoText}>
+                  R = {problem.data.symbols.R}
+                </Text>
+                <Text variant="bodySmall" style={styles.infoText}>
+                  P = {problem.data.symbols.P}
+                </Text>
+                {selectedSnapPoint && (
+                  <Text variant="bodySmall" style={[styles.infoText, { color: Colors.primary }]}>
+                    Selected: {selectedSnapPoint}
+                  </Text>
+                )}
+              </View>
+            </ScrollView>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -268,6 +313,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  mainScrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   centerContainer: {
     flex: 1,
@@ -285,32 +336,58 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
+  descriptionContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    alignItems: 'flex-start',
+  },
+  textSection: {
+    flex: 1,
+  },
   description: {
     color: Colors.onBackground,
     lineHeight: 20,
   },
+  diagramSection: {
+    width: 180,
+    height: 140,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerDiagramImage: {
+    width: '100%',
+    height: '100%',
+  },
+  paletteSection: {
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.disabled,
+    backgroundColor: Colors.surface,
+  },
   workspace: {
     flex: 1,
+    flexDirection: 'row',
     padding: 16,
     gap: 16,
   },
-  paletteContainer: {
-    // Shape palette will size itself
-  },
-  mainArea: {
+  canvasScrollView: {
     flex: 1,
-    flexDirection: 'row',
-    gap: 16,
+  },
+  canvasScrollContent: {
+    padding: 8,
   },
   canvasArea: {
     borderRadius: 12,
     backgroundColor: Colors.surface,
-    flex: 1,
-    minHeight: 300,
+    minHeight: 400,
+    minWidth: 600,
   },
   toolsArea: {
-    width: 280,
+    width: 360,
     gap: 16,
+  },
+  scrollContainer: {
+    flex: 1,
   },
   clearControls: {
     backgroundColor: Colors.surface,
@@ -318,7 +395,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: Colors.disabled,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   clearTitle: {
     color: Colors.primary,

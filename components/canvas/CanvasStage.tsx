@@ -169,6 +169,94 @@ export const CanvasStage = React.forwardRef<CanvasStageRef, CanvasStageProps>(({
   const [forceArrows, setForceArrows] = useState<ForceArrow[]>([]);
   const [selectedSnapPoint, setSelectedSnapPoint] = useState<string | null>(null);
   const [selectedBody, setSelectedBody] = useState<string | null>(null);
+  const [snapTargets, setSnapTargets] = useState<{sourceId: string, targetId: string, targetX: number, targetY: number}[]>([]);
+
+  // Snap tolerance in pixels
+  const SNAP_TOLERANCE = 25;
+
+  // Function to get world position of a snap point
+  const getSnapPointWorldPosition = (bodyId: string, pointName: string) => {
+    const body = droppedBodies.find(b => b.id === bodyId);
+    if (!body) return null;
+
+    const point = body.snapPoints.find(p => p.name === pointName);
+    if (!point) return null;
+
+    // For non-ground bodies, flip Y coordinate to match graphics
+    const snapY = body.body.isGround ? point.y : -point.y;
+
+    return {
+      x: body.x + point.x,
+      y: body.y + snapY
+    };
+  };
+
+  // Function to find nearby snap points for a dragged body
+  const findNearbySnapPoints = (draggedBodyId: string, draggedBodyX: number, draggedBodyY: number) => {
+    const draggedBody = droppedBodies.find(b => b.id === draggedBodyId);
+    if (!draggedBody) return [];
+
+    const nearbySnaps: {sourceId: string, targetId: string, targetX: number, targetY: number}[] = [];
+
+    // Check each snap point of the dragged body
+    draggedBody.snapPoints.forEach(draggedPoint => {
+      const draggedSnapY = draggedBody.body.isGround ? draggedPoint.y : -draggedPoint.y;
+      const draggedWorldX = draggedBodyX + draggedPoint.x;
+      const draggedWorldY = draggedBodyY + draggedSnapY;
+
+      // Check against all snap points of other bodies
+      droppedBodies.forEach(otherBody => {
+        if (otherBody.id === draggedBodyId) return; // Skip self
+
+        otherBody.snapPoints.forEach(otherPoint => {
+          const otherSnapY = otherBody.body.isGround ? otherPoint.y : -otherPoint.y;
+          const otherWorldX = otherBody.x + otherPoint.x;
+          const otherWorldY = otherBody.y + otherSnapY;
+
+          const distance = Math.sqrt(
+            Math.pow(draggedWorldX - otherWorldX, 2) +
+            Math.pow(draggedWorldY - otherWorldY, 2)
+          );
+
+          if (distance <= SNAP_TOLERANCE) {
+            nearbySnaps.push({
+              sourceId: `${draggedBodyId}-${draggedPoint.name}`,
+              targetId: `${otherBody.id}-${otherPoint.name}`,
+              targetX: otherWorldX,
+              targetY: otherWorldY
+            });
+          }
+        });
+      });
+    });
+
+    return nearbySnaps;
+  };
+
+  // Function to snap a body to the nearest snap point
+  const snapBodyToPoint = (draggedBodyId: string, nearbySnaps: typeof snapTargets) => {
+    if (nearbySnaps.length === 0) return null;
+
+    const draggedBody = droppedBodies.find(b => b.id === draggedBodyId);
+    if (!draggedBody) return null;
+
+    // Take the first (closest) snap target
+    const snapTarget = nearbySnaps[0];
+    const sourcePointName = snapTarget.sourceId.split('-').pop();
+    const sourcePoint = draggedBody.snapPoints.find(p => p.name === sourcePointName);
+
+    if (!sourcePoint) return null;
+
+    // Calculate the offset needed to align the snap points
+    const sourceSnapY = draggedBody.body.isGround ? sourcePoint.y : -sourcePoint.y;
+    const newX = snapTarget.targetX - sourcePoint.x;
+    const newY = snapTarget.targetY - sourceSnapY;
+
+    console.log(`Snapping ${draggedBodyId} to align ${snapTarget.sourceId} with ${snapTarget.targetId}`);
+    console.log(`New position: (${newX}, ${newY})`);
+
+    return { x: newX, y: newY };
+  };
 
   // Handle drop events from drag-and-drop
   const handleDrop = useCallback((e: KonvaEventObject<DragEvent>) => {
@@ -360,6 +448,55 @@ export const CanvasStage = React.forwardRef<CanvasStageRef, CanvasStageProps>(({
                 console.log('Group onMouseUp triggered for:', droppedBody.id);
                 handleBodyClick(droppedBody.id);
               }}
+              onDragMove={(e) => {
+                const newX = e.target.x();
+                const newY = e.target.y();
+
+                // Find nearby snap points during drag
+                const nearbySnaps = findNearbySnapPoints(droppedBody.id, newX, newY);
+                setSnapTargets(nearbySnaps);
+
+                if (nearbySnaps.length > 0) {
+                  console.log(`Found ${nearbySnaps.length} snap targets for ${droppedBody.id}`);
+                }
+              }}
+              onDragEnd={(e) => {
+                const currentX = e.target.x();
+                const currentY = e.target.y();
+
+                console.log(`Drag ended for ${droppedBody.id} at (${currentX}, ${currentY})`);
+
+                // Find nearby snap points
+                const nearbySnaps = findNearbySnapPoints(droppedBody.id, currentX, currentY);
+
+                if (nearbySnaps.length > 0) {
+                  // Snap to the nearest point
+                  const snapPosition = snapBodyToPoint(droppedBody.id, nearbySnaps);
+
+                  if (snapPosition) {
+                    // Update the body position to snap to the target
+                    setDroppedBodies(prev => prev.map(body =>
+                      body.id === droppedBody.id
+                        ? { ...body, x: snapPosition.x, y: snapPosition.y }
+                        : body
+                    ));
+
+                    // Update the Konva object position immediately
+                    e.target.x(snapPosition.x);
+                    e.target.y(snapPosition.y);
+                  }
+                } else {
+                  // No snap targets, just update the position normally
+                  setDroppedBodies(prev => prev.map(body =>
+                    body.id === droppedBody.id
+                      ? { ...body, x: currentX, y: currentY }
+                      : body
+                  ));
+                }
+
+                // Clear snap targets
+                setSnapTargets([]);
+              }}
             >
               {/* Render the body shape */}
               {droppedBody.body.isGround
@@ -402,6 +539,32 @@ export const CanvasStage = React.forwardRef<CanvasStageRef, CanvasStageProps>(({
               type={arrow.type as 'force' | 'reaction'}
               label={`${arrow.magnitude}`}
             />
+          ))}
+
+          {/* Snap target visual feedback */}
+          {snapTargets.map((snapTarget, index) => (
+            <Group key={`snap-target-${index}`}>
+              {/* Highlight the target snap point */}
+              <Circle
+                x={snapTarget.targetX}
+                y={snapTarget.targetY}
+                radius={12}
+                stroke={theme.colors.secondary}
+                strokeWidth={3}
+                fill="transparent"
+                opacity={0.8}
+              />
+              {/* Pulsing effect */}
+              <Circle
+                x={snapTarget.targetX}
+                y={snapTarget.targetY}
+                radius={18}
+                stroke={theme.colors.secondary}
+                strokeWidth={2}
+                fill="transparent"
+                opacity={0.4}
+              />
+            </Group>
           ))}
         </Layer>
       </Stage>
